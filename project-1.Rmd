@@ -1,0 +1,465 @@
+---
+title: "Geometric Distribution"
+subtitle: "STA 632 | Project 1"
+author: "Nishan Khanal"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: false
+    number_sections: false
+    fig_caption: true
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: false
+    theme: readable
+    df_print: kable
+fontsize: 10pt
+geometry: margin=0.85in
+urlcolor: blue
+header-includes:
+  - \usepackage{etoolbox}
+  - \BeforeBeginEnvironment{Shaded}{\begin{samepage}}
+  - \AfterEndEnvironment{Shaded}{\end{samepage}}
+---
+
+<!-- Add the other group members to the author field before submission. -->
+<!-- Requirements: ggplot2, knitr, rmarkdown, and a LaTeX installation for PDF.
+     Install packages once in the R console, not inside this report:
+     install.packages(c("ggplot2", "knitr", "rmarkdown"))
+     If LaTeX is missing: install.packages("tinytex"); tinytex::install_tinytex()
+     Knit to PDF for submission; Knit to HTML is also supported.
+-->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, error = FALSE, message = FALSE,
+  fig.width = 6.6, fig.height = 4.1, fig.align = "center",
+  out.width = "100%", dpi = 150
+)
+library(ggplot2)
+theme_set(theme_minimal(base_size = 11))
+options(width = 78)
+```
+
+The geometric distribution models the **number of failures before the first
+success** in independent trials with the same success probability. Throughout
+this report, $X$ counts failures and $p$ is the probability of success on each
+trial. This is the version used by R's geometric functions [1].
+
+For example, suppose each attempt to transmit a packet succeeds independently
+with probability $p=0.20$. If the outcomes are failure, failure, success, then
+$X=2$. The successful attempt is not included in the failure count. This is an
+illustrative model; actual transmissions need not have independent outcomes
+or a constant success probability.
+
+### Discrete or Continuous?
+
+The geometric distribution is **discrete** because it assigns probabilities
+to nonnegative integer counts. A probability mass function (PMF), rather than
+a probability density function (PDF), describes these probabilities.
+
+### Support
+
+For $0<p<1$, the support is
+
+\[
+\mathcal{S}=\{0,1,2,3,\ldots\}.
+\]
+
+Here, $\mathcal{S}$ denotes the set of possible values of $X$. In particular,
+$X=0$ means that the first trial succeeds. There is no finite upper bound.
+At the boundary $p=1$, success is certain on the first trial, so the support
+reduces to $\{0\}$.
+
+### Parameters
+
+There is one distribution parameter:
+
+| R parameter name | Verbal name | Notation |
+|:--|:--|:--|
+| `prob` | Probability of success on each trial | $p$ |
+
+In `dgeom(x, prob)`, `x` is a failure count at which to evaluate the PMF; it
+is not a distribution parameter. Similarly, `n` in `rgeom(n, prob)` specifies
+how many observations to simulate, not the number of trials before success.
+
+### Parameter space
+
+The parameter space accepted by R is $0<p\leq 1$ [1]. When $p=1$, all
+probability is at zero. The value $p=0$ is excluded: success never occurs,
+so there is no finite failure count before the first success.
+
+### PDF or PMF formula
+
+For $0<p<1$, the PMF is
+
+\[
+f_X(x)=P(X=x)=
+\begin{cases}
+p(1-p)^x, & x=0,1,2,\ldots,\\
+0, & \text{otherwise}.
+\end{cases}
+\]
+
+Here, $f_X(x)$ is the probability of exactly $x$ failures before the first
+success. The factor $(1-p)^x$ is the probability of $x$ consecutive failures;
+the final factor $p$ is the probability that the next trial succeeds.
+Independence lets us multiply these probabilities. At $p=1$, define
+$f_X(0)=1$ and $f_X(x)=0$ for every $x\neq 0$.
+
+The probabilities sum to one by the geometric-series identity:
+
+\[
+\sum_{x=0}^{\infty}p(1-p)^x
+=\frac{p}{1-(1-p)}=1.
+\]
+
+### Mean and variance
+
+The mean, variance, and standard deviation are
+
+\[
+\mu=E(X)=\frac{1-p}{p},\qquad
+\sigma^2=\operatorname{Var}(X)=\frac{1-p}{p^2},\qquad
+\sigma=\frac{\sqrt{1-p}}{p}.
+\]
+
+Here, $E(X)$ or $\mu$ is the long-run average number of failures,
+$\operatorname{Var}(X)$ or $\sigma^2$ measures spread in squared failure-count
+units, and $\sigma$ measures spread in failure-count units. These formulas
+also give zero mean and variance when $p=1$.
+
+For $p=0.20$, the mean is $4$ failures, the variance is $20$, and the standard
+deviation is approximately $4.472$ failures. The mean is a long-run average,
+not a guarantee that each sequence has four failures.
+
+**The other convention.** If $T$ counts the total trials up to and including
+the first success, then
+
+\[
+T=X+1,\qquad E(T)=\frac{1}{p},\qquad
+\operatorname{Var}(T)=\operatorname{Var}(X).
+\]
+
+Thus, $T$ starts at $1$, while $X$ starts at $0$. Adding one changes the mean
+but not the variance. Some references, including [3], use the $T$ convention.
+With $p=0.20$, the expected total number of attempts is $5$.
+
+### Plot of probability mass function
+
+The following plots compare **four parameter values**:
+$p=0.20,0.40,0.60,0.80$. Vertical segments and points emphasize that probability
+is assigned only to integers, following the discrete plots in Activities 1.2
+through 1.4. All panels use the same axes to make comparisons meaningful.
+
+```{r geometric-pmf, fig.height=4, fig.cap="Geometric PMFs for four success probabilities; X counts failures."}
+prob_values <- c(0.20, 0.40, 0.60, 0.80)
+pmf_dat <- expand.grid(x = 0:20, prob = prob_values)
+pmf_dat$pmf <- dgeom(pmf_dat$x, prob = pmf_dat$prob)
+pmf_dat$panel <- factor(
+  pmf_dat$prob, levels = prob_values,
+  labels = paste0("p = ", sprintf("%.2f", prob_values))
+)
+
+ggplot(pmf_dat, aes(x = x, y = pmf)) +
+  geom_segment(aes(xend = x, yend = 0), color = "#176B91") +
+  geom_point(color = "#176B91", size = 1.8) +
+  facet_wrap(~panel, ncol = 2) +
+  scale_x_continuous(breaks = seq(0, 20, by = 5)) +
+  scale_y_continuous(limits = c(0, 0.82)) +
+  labs(x = "Failures before first success (x)",
+       y = "P(X = x)")
+```
+
+The display stops at $20$, but the support continues indefinitely. Even for
+$p=0.20$, the displayed values contain
+`r round(100 * pgeom(20, prob = 0.20), 2)`% of the probability; the omitted
+tail has probability $P(X>20)=(0.80)^{21}\approx 0.00922$.
+
+```{r parameter-summary, echo=FALSE}
+parameter_summary <- data.frame(
+  p = prob_values,
+  Mean = (1 - prob_values) / prob_values,
+  Variance = (1 - prob_values) / prob_values^2,
+  SD = sqrt(1 - prob_values) / prob_values
+)
+knitr::kable(parameter_summary, digits = 3)
+```
+
+### How does the distribution change with the parameters?
+
+* **Center:** Increasing $p$ lowers the mean $(1-p)/p$. Success tends to
+  occur sooner, so fewer failures are expected.
+* **Spread:** Increasing $p$ decreases both the variance and the standard
+  deviation. Small $p$ allows much longer and more variable waits.
+* **Shape:** For $0<p<1$, the PMF is decreasing and right-skewed, with its
+  unique mode at $0$. The ratio of successive masses is
+  $f_X(x+1)/f_X(x)=1-p$. A larger $p$ makes the PMF fall more quickly and
+  puts more mass at zero; a smaller $p$ gives a more slowly decaying tail.
+  A shorter tail here does not mean that the distribution becomes symmetric.
+* **Boundary behavior:** As $p$ approaches $1$, the distribution concentrates
+  at zero. As $p$ approaches $0$ from above, the mean and variance grow
+  without bound.
+
+### Distribution-specific questions
+
+#### What are Bernoulli trials, and how are they related to the geometric distribution?
+
+A Bernoulli trial has two possible outcomes, labeled **success** and
+**failure**. These labels identify outcomes and do not necessarily mean
+something desirable or undesirable. A sequence of Bernoulli trials for the
+geometric model has three features:
+
+1. Each trial has two possible outcomes.
+2. Trials are independent: previous outcomes do not affect the next trial.
+3. Every trial has the same success probability $p$.
+
+The geometric random variable counts failures until the first success in
+this sequence. For example, with repeated independent rolls of a fair die,
+define success as rolling a six. Then $p=1/6$ and $X$ counts non-six results
+before the first six. Its mean is $(1-1/6)/(1/6)=5$ failures.
+
+Sampling without replacement from a finite population generally does not
+satisfy the constant-probability assumption. Likewise, a process whose
+success probability changes through learning or fatigue need not be geometric.
+
+#### How is the geometric distribution related to the negative binomial distribution?
+
+For a positive integer $r$, let $Y$ count failures before the **$r$th success**
+in independent Bernoulli trials with success probability $p$. Then $Y$ has
+a negative binomial distribution [2], with PMF
+
+\[
+P(Y=y)=\binom{y+r-1}{y}p^r(1-p)^y,
+\qquad y=0,1,2,\ldots.
+\]
+
+Here, $y$ is the number of failures, $r$ is the target number of successes
+(`size` in R), and $p$ is `prob`. The binomial coefficient counts arrangements
+of $y$ failures and $r-1$ successes before the final successful trial.
+
+Setting $r=1$ gives
+
+\[
+P(Y=y)=\binom{y}{y}p(1-p)^y=p(1-p)^y.
+\]
+
+Therefore, the **geometric distribution is the negative binomial distribution
+with `size = 1`**. This identity can be checked in R:
+
+```{r negative-binomial-connection}
+x_check <- 0:20
+all.equal(
+  dgeom(x_check, prob = 0.20),
+  dnbinom(x_check, size = 1, prob = 0.20)
+)
+```
+
+R also allows positive noninteger `size` values, but the literal interpretation
+as a target number of successes uses integer $r$ [2]. The distributions differ
+from the binomial as follows:
+
+| Distribution | What is fixed? | What is counted? |
+|:--|:--|:--|
+| Binomial | Number of trials | Successes in those trials |
+| Negative binomial | Target successes, $r$ | Failures before the $r$th success |
+| Geometric | One target success | Failures before the first success |
+
+#### What is the memoryless property? Explain using conditional probability.
+
+Once several trials have failed, the distribution of the **additional**
+failures before success is the same as it was at the start. Past failures
+do not make success more or less likely on the next independent trial.
+
+For our failure-count variable $X$, the appropriate statement is
+
+\[
+P(X\geq m+n\mid X\geq m)=P(X\geq n),
+\qquad m,n\in\{0,1,2,\ldots\},\quad 0<p<1.
+\]
+
+Here, $m$ is the number of failures already observed, $n$ is an additional
+failure threshold, and the vertical bar means "given that." The event
+$X\geq m$ means that the first $m$ trials all failed. Since
+$P(X\geq k)=(1-p)^k$ for any nonnegative integer $k$, conditional probability
+gives
+
+\[
+\begin{aligned}
+P(X\geq m+n\mid X\geq m)
+&=\frac{P(X\geq m+n)}{P(X\geq m)}\\
+&=\frac{(1-p)^{m+n}}{(1-p)^m}\\
+&=(1-p)^n=P(X\geq n).
+\end{aligned}
+\]
+
+The numerator simplifies because $X\geq m+n$ implies $X\geq m$.
+For $p=1$ and $m\geq1$, the conditioning event has probability zero, so
+this conditional probability is undefined.
+
+**Numerical example.** If $p=0.20$ and the first three attempts fail, the
+probability that the next four attempts also fail is
+
+\[
+P(X\geq7\mid X\geq3)=(0.80)^4=0.4096.
+\]
+
+```{r memoryless-check}
+p_success <- 0.20
+m <- 3
+n_more <- 4
+# pgeom(k - 1, lower.tail = FALSE) gives P(X >= k).
+conditional_prob <-
+  pgeom(m + n_more - 1, prob = p_success, lower.tail = FALSE) /
+  pgeom(m - 1, prob = p_success, lower.tail = FALSE)
+fresh_prob <- pgeom(n_more - 1, prob = p_success,
+                    lower.tail = FALSE)
+c(Conditional = conditional_prob, Fresh_start = fresh_prob)
+```
+
+**Counting distinction:** The familiar strict-inequality form
+$P(T>m+n\mid T>m)=P(T>n)$ applies to $T=X+1$, which counts total trials.
+For the failure count $X$, use the $\geq$ form shown above to avoid an
+off-by-one error. Memorylessness concerns the remaining wait, not the total
+number of failures accumulated so far.
+
+### R distribution functions: d, p, q, and r
+
+Following Activities 1.1 and 1.2, the four geometric functions are [1]:
+
+| Function | Purpose |
+|:--|:--|
+| `dgeom(x, prob)` | Exact probability $P(X=x)$ |
+| `pgeom(q, prob)` | Cumulative probability $P(X\leq q)$ |
+| `qgeom(p, prob)` | Smallest failure count reaching a target cumulative probability |
+| `rgeom(n, prob)` | Generate $n$ independent geometric observations |
+
+The argument `p` in **`qgeom(p, prob)`** is the requested cumulative
+probability; `prob` is the per-trial success probability. They are different
+quantities. The next examples use `p_success = 0.20`.
+
+#### Cumulative distribution function (CDF)
+
+For a real number $x$, the CDF is
+
+\[
+F_X(x)=P(X\leq x)=
+\begin{cases}
+0, & x<0,\\
+1-(1-p)^{\lfloor x\rfloor+1}, & x\geq0.
+\end{cases}
+\]
+
+Here, $F_X$ denotes the CDF, and $\lfloor x\rfloor$ is the greatest integer
+less than or equal to $x$. For example, $F_X(2.5)=F_X(2)$ because no possible
+failure counts lie between $2$ and $3$. At each nonnegative integer, the CDF
+jumps by the probability mass at that integer.
+
+```{r geometric-cdf, fig.height=3.2, fig.cap="The geometric CDF is constant between consecutive integers (p = 0.20)."}
+cdf_dat <- data.frame(x = -1:20)
+cdf_dat$cdf <- pgeom(cdf_dat$x, prob = p_success)
+ggplot(cdf_dat, aes(x = x, y = cdf)) +
+  geom_step(direction = "hv", color = "#176B91") +
+  geom_point(color = "#176B91", size = 1.5) +
+  scale_y_continuous(limits = c(0, 1)) +
+  scale_x_continuous(breaks = seq(0, 20, by = 2)) +
+  labs(x = "Failure-count threshold (x)", y = "P(X <= x)")
+```
+
+#### Probability examples
+
+Using the packet-transmission example with $p=0.20$:
+
+```{r probability-examples}
+prob_examples <- data.frame(
+  Event = c("Exactly 3 failures", "At most 3 failures",
+            "More than 4 failures", "2 to 5 failures, inclusive"),
+  Probability = c(
+    dgeom(3, prob = p_success),
+    pgeom(3, prob = p_success),
+    pgeom(4, prob = p_success, lower.tail = FALSE),
+    pgeom(5, prob = p_success) - pgeom(1, prob = p_success)
+  )
+)
+knitr::kable(prob_examples, digits = 6)
+```
+
+The first row, $P(X=3)=0.1024$, means that the first success occurs on
+**attempt 4**. For the interval probability, subtract $P(X\leq1)$ from
+$P(X\leq5)$ so that $X=2$ remains included. Also note that `lower.tail = FALSE`
+returns $P(X>q)$, not $P(X\geq q)$.
+
+#### Quantile example
+
+How many attempts are needed for at least a $90\%$ chance of seeing a success?
+Let $u=0.90$ be the target cumulative probability. The failure-count quantile
+$Q(u)$ is the smallest nonnegative integer $k$ for which $F_X(k)\geq u$.
+
+```{r quantile-example}
+u <- 0.90
+failure_quantile <- qgeom(p = u, prob = p_success)
+data.frame(
+  Failure_quantile = failure_quantile,
+  Attempts_needed = failure_quantile + 1,
+  CDF_at_previous = pgeom(failure_quantile - 1, prob = p_success),
+  CDF_at_quantile = pgeom(failure_quantile, prob = p_success)
+)
+```
+
+The 90th percentile is **10 failures**, corresponding to **11 attempts**.
+The chance of success within 10 attempts is about $0.8926$, while within 11
+attempts it is about $0.9141$. Because the CDF jumps, the probability at the
+quantile can exceed $0.90$; it need not equal the target exactly.
+
+#### Random generation and comparison with theory
+
+Each simulated observation is the failure count from a separate sequence
+that ends at its first success. Setting a seed makes the simulation
+reproducible. The sample mean, variance, and standard deviation should be
+close to their theoretical values, with some sampling variation.
+
+```{r simulation}
+set.seed(632)
+simulated_x <- rgeom(n = 10000, prob = p_success)
+simulation_summary <- data.frame(
+  Quantity = c("Mean", "Variance", "Standard deviation"),
+  Theoretical = c((1 - p_success) / p_success,
+                  (1 - p_success) / p_success^2,
+                  sqrt(1 - p_success) / p_success),
+  Simulated = c(mean(simulated_x), var(simulated_x), sd(simulated_x))
+)
+knitr::kable(simulation_summary, digits = 3)
+```
+
+<!-- ### References -->
+
+<!-- 1. R Core Team. *The Geometric Distribution*, R `stats` documentation. -->
+<!--    [R geometric help page](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/Geometric.html). -->
+<!--    Also available in R with `?Geometric`. -->
+<!-- 2. R Core Team. *The Negative Binomial Distribution*, R `stats` documentation. -->
+<!--    [R negative binomial help page](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/NegBinomial.html). -->
+<!--    Also available in R with `?NegBinomial`. -->
+<!-- 3. Pennsylvania State University. *STAT 414, Lesson 11: Geometric and Negative -->
+<!--    Binomial Distributions*. -->
+<!--    [Course lesson](https://online.stat.psu.edu/stat414/Lesson11). -->
+<!--    This source counts total trials; this report uses failures before success. -->
+<!-- 4. Course materials supplied for STA 632: *Project 1 directions*, -->
+<!--    *Proj1 Rmd template*, Activities 1.1-1.5, and Homework 1. The report follows -->
+<!--    the project headings and the class examples for discrete PMFs, CDFs, -->
+<!--    quantiles, and simulation. -->
+
+```{r internal-checks, include=FALSE}
+# Stop knitting if an important identity or example is accidentally changed.
+stopifnot(
+  isTRUE(all.equal(dgeom(0:20, prob = p_success),
+                   dnbinom(0:20, size = 1, prob = p_success))),
+  isTRUE(all.equal(conditional_prob, fresh_prob)),
+  abs(sum(dgeom(0:20, prob = p_success)) +
+        pgeom(20, prob = p_success, lower.tail = FALSE) - 1) < 1e-12,
+  pgeom(failure_quantile, prob = p_success) >= u,
+  pgeom(failure_quantile - 1, prob = p_success) < u,
+  dgeom(0, prob = 1) == 1,
+  dgeom(1, prob = 1) == 0
+)
+```

@@ -1,0 +1,12 @@
+name: geometric
+title: geometric
+username: geom-distribution
+account: geom-distribution
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 18172647
+bundleId: 12687478
+url: https://geom-distribution.shinyapps.io/geometric/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
